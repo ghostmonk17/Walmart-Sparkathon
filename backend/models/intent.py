@@ -29,41 +29,59 @@ def extract_intent_entities(text):
             intent = "remove_from_cart"
         elif any(phrase in text for phrase in ["what's in", "show cart", "view cart", "my cart"]):
             intent = "show_cart"
-        # More robust quantity extraction
+        # Improved product, quantity, and metric extraction
         qty = 1
-        qty_match = re.search(r'(\d+)|one|two|three|four|five|a|an', text)
-        if qty_match:
-            if qty_match.group().isdigit():
-                qty = int(qty_match.group())
-            else:
-                numbers = {
-                    "one":1, "two":2, "three":3, 
-                    "four":4, "five":5, "a":1, "an":1
-                }
-                qty = numbers.get(qty_match.group().lower(), 1)
-        # Improved product matching (handle singular/plural)
-        product = "item"
+        metric = None
+        product = None
+        best_match = None
+        best_match_len = 0
+        metrics_list = ["kg", "kilogram", "litre", "liter", "dozen", "dozens", "packet", "packets", "bottle", "bottles", "piece", "pieces"]
         for prod in products_data:
             prod_name = prod["name"].lower()
-            # Check for exact, singular, or plural match
-            if prod_name in text or prod_name.rstrip('s') in text or (prod_name + 's') in text:
-                product = prod["name"]
-                break
-            # Also check for partial matches (singular/plural)
-            for word in prod_name.split():
-                if word in text.split() or word.rstrip('s') in text.split() or (word + 's') in text.split():
+            # Look for patterns like '2 kg rice', '3 packets milk', etc.
+            pattern = r"(\d+|one|two|three|four|five|a|an)?\s*(%s)?\s*%s" % ("|".join(metrics_list), re.escape(prod_name))
+            match = re.search(pattern, text)
+            if match:
+                if len(prod_name) > best_match_len:
+                    best_match = prod["name"]
+                    best_match_len = len(prod_name)
+                    qty_str = match.group(1)
+                    metric_str = match.group(2)
+                    if qty_str:
+                        if qty_str.isdigit():
+                            qty = int(qty_str)
+                        else:
+                            numbers = {"one":1, "two":2, "three":3, "four":4, "five":5, "a":1, "an":1}
+                            qty = numbers.get(qty_str.lower(), 1)
+                    else:
+                        qty = 1
+                    if metric_str:
+                        metric = metric_str
+                    else:
+                        metric = None
+        if best_match:
+            product = best_match
+        else:
+            # fallback to old logic for partial matches
+            for prod in products_data:
+                prod_name = prod["name"].lower()
+                if prod_name in text or prod_name.rstrip('s') in text or (prod_name + 's') in text:
                     product = prod["name"]
                     break
-        logger.info(f"Extracted entities - Intent: {intent}, Product: {product}, Qty: {qty}")
+        if not product:
+            product = "item"
+        logger.info(f"Extracted entities - Intent: {intent}, Product: {product}, Qty: {qty}, Metric: {metric}")
         return {
             "intent": intent,
             "product": product,
-            "quantity": qty
+            "quantity": qty,
+            "metric": metric
         }
     except Exception as e:
         logger.error(f"Intent extraction failed: {str(e)}")
         return {
             "intent": "unknown",
             "product": "item",
-            "quantity": 1
+            "quantity": 1,
+            "metric": None
         }
