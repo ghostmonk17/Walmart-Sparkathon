@@ -1,11 +1,12 @@
 from flask import Flask, jsonify, send_file, request
 from flask_cors import CORS
-from database import cart_collection, log_collection
+from models.database import cart_collection, log_collection
 from collections import Counter
 import os
 import uuid
 import subprocess
 import logging
+import json
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
@@ -72,8 +73,14 @@ def upload_audio():
 @app.route("/api/cart")
 def cart():
     try:
-        items = list(cart_collection.find({}, {"_id": 0}))
-        return jsonify(items)
+        from models.cart import show_cart
+        items = show_cart()
+        subtotal = sum(item.get("total_price", 0) for item in items)
+        return jsonify({
+            "cart": items,
+            "subtotal": round(subtotal, 2),
+            "total": round(subtotal, 2)
+        })
     except Exception as e:
         logger.error(f"Cart retrieval failed: {str(e)}")
         return jsonify({"error": "Failed to retrieve cart"}), 500
@@ -117,53 +124,90 @@ def debug_command():
     try:
         data = request.json
         text = data.get("text", "")
-        from intent import extract_intent_entities
-        from cart import add_to_cart, remove_from_cart, show_cart
+        from models.intent import extract_intent_entities
+        from models.cart import add_to_cart, remove_from_cart, show_cart
         entities = extract_intent_entities(text)
         logger.info(f"Debug entities: {entities}")
         if entities["intent"] == "add_to_cart":
             add_to_cart(entities["product"], entities["quantity"])
             cart = show_cart()
-            return jsonify({
-                "status": "success",
-                "action": "add",
-                "cart": cart
-            })
         elif entities["intent"] == "remove_from_cart":
             remove_from_cart(entities["product"])
             cart = show_cart()
-            return jsonify({
-                "status": "success",
-                "action": "remove",
-                "cart": cart
-            })
         elif entities["intent"] == "show_cart":
             cart = show_cart()
-            return jsonify({
-                "status": "success",
-                "action": "show",
-                "cart": cart
-            })
         else:
             cart = show_cart()
-            return jsonify({
-                "status": "error",
-                "message": "Unknown intent",
-                "cart": cart
-            }), 400
+        # Calculate subtotal and total
+        try:
+            with open("product.json") as f:
+                products_data = json.load(f)
+            price_map = {p["name"].lower(): p.get("price", 0) for p in products_data}
+        except Exception as e:
+            logger.error(f"Failed to load product prices: {str(e)}")
+            price_map = {}
+        subtotal = 0.0
+        for item in cart:
+            product_name = item.get("product", "").lower()
+            price = price_map.get(product_name, 0)
+            quantity = item.get("quantity", 1)
+            item["price"] = price
+            item["total_price"] = price * quantity
+            subtotal += price * quantity
+        response = {
+            "status": "success" if entities["intent"] in ["add_to_cart", "remove_from_cart", "show_cart"] else "error",
+            "action": entities["intent"],
+            "cart": cart,
+            "subtotal": round(subtotal, 2),
+            "total": round(subtotal, 2)
+        }
+        if entities["intent"] == "unknown":
+            response["message"] = "Unknown intent"
+            return jsonify(response), 400
+        return jsonify(response)
     except Exception as e:
         logger.error(f"Debug error: {str(e)}")
         cart = []
         try:
-            from cart import show_cart
+            from models.cart import show_cart
             cart = show_cart()
         except Exception:
             pass
         return jsonify({
             "status": "error",
             "message": str(e),
-            "cart": cart
+            "cart": cart,
+            "subtotal": 0.0,
+            "total": 0.0
         }), 500
+
+@app.route("/api/checkout", methods=["POST"])
+def checkout():
+    try:
+        from models.cart import show_cart
+        from models.database import cart_collection
+        # Get current cart
+        cart_items = show_cart()
+        if not cart_items:
+            return jsonify({"error": "Cart is empty"}), 400
+        # Save to orders collection
+        from models.database import log_collection
+        import datetime
+        from pymongo import MongoClient
+        client = cart_collection.database.client
+        orders_collection = client[cart_collection.database.name]["orders"]
+        order_doc = {
+            "items": cart_items,
+            "created_at": datetime.datetime.utcnow(),
+            "status": "completed"
+        }
+        orders_collection.insert_one(order_doc)
+        # Clear the cart
+        cart_collection.delete_many({})
+        return jsonify({"status": "success", "message": "Order placed and cart cleared."})
+    except Exception as e:
+        logger.error(f"Checkout failed: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

@@ -1,4 +1,4 @@
-from database import cart_collection
+from models.database import cart_collection
 from pymongo.errors import PyMongoError
 import logging
 
@@ -50,6 +50,21 @@ def show_cart():
         logger.info("Retrieving cart contents")
         items = list(cart_collection.find({}, {"_id": 0}))
         logger.info(f"Found {len(items)} items in cart")
+        # Add price and total_price to each item
+        import json
+        try:
+            with open("product.json") as f:
+                products_data = json.load(f)
+            price_map = {p["name"].lower(): p.get("price", 0) for p in products_data}
+        except Exception as e:
+            logger.error(f"Failed to load product prices: {str(e)}")
+            price_map = {}
+        for item in items:
+            product_name = item.get("product", "").lower()
+            price = price_map.get(product_name, 0)
+            quantity = item.get("quantity", 1)
+            item["price"] = price
+            item["total_price"] = price * quantity
         return items
     except PyMongoError as e:
         logger.error(f"Cart retrieval failed: {str(e)}")
