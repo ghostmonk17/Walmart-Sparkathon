@@ -132,7 +132,7 @@ def debug_command():
             add_to_cart(entities["product"], entities["quantity"])
             cart = show_cart()
         elif entities["intent"] == "remove_from_cart":
-            remove_from_cart(entities["product"])
+            remove_from_cart(entities["product"], entities["quantity"])
             cart = show_cart()
         elif entities["intent"] == "show_cart":
             cart = show_cart()

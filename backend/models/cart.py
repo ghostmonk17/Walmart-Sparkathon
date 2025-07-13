@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def add_to_cart(product, qty):
+def add_to_cart(product, qty=1):
     try:
         logger.info(f"Adding to cart: {qty} x {product}")
         # Normalize product name for consistent storage
@@ -30,17 +30,21 @@ def add_to_cart(product, qty):
         logger.error(f"Cart update failed: {str(e)}")
         raise
 
-def remove_from_cart(product):
+def remove_from_cart(product, qty=1):
     try:
         normalized_product = product.lower().strip()
-        logger.info(f"Removing from cart: {normalized_product}")
-        result = cart_collection.delete_one({"product": normalized_product})
-        
-        if result.deleted_count > 0:
-            logger.info(f"Successfully removed {normalized_product}")
-        else:
+        logger.info(f"Removing {qty} from cart: {normalized_product}")
+        item = cart_collection.find_one({"product": normalized_product})
+        if not item:
             logger.warning(f"Product not found: {normalized_product}")
-            
+            return
+        new_qty = item.get("quantity", 1) - qty
+        if new_qty > 0:
+            cart_collection.update_one({"product": normalized_product}, {"$set": {"quantity": new_qty}})
+            logger.info(f"Decremented quantity of {normalized_product} to {new_qty}")
+        else:
+            cart_collection.delete_one({"product": normalized_product})
+            logger.info(f"Removed {normalized_product} from cart (quantity zero or less)")
     except PyMongoError as e:
         logger.error(f"Cart deletion failed: {str(e)}")
         raise
