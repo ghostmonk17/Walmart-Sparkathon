@@ -1,0 +1,17 @@
+[
+  {"name": "Great Value rice", "category": "grocery"},
+  {"name": "Equate toothpaste", "category": "personal care"},
+  {"name": "Kellogg's cereal", "category": "grocery"},
+  {"name": "Milk", "category": "dairy"},
+  {"name": "Eggs", "category": "dairy"},
+  {"name": "Bread", "category": "bakery"},
+  {"name": "Bananas", "category": "produce"},
+  {"name": "Chicken breast", "category": "meat"},
+  {"name": "Orange juice", "category": "beverages"},
+  {"name": "Toilet paper", "category": "household"},
+  {
+    "name": "Banana",
+    "price": 0.5,
+    "image": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Banana-Single.jpg"
+  }
+]

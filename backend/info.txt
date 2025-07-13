@@ -1,0 +1,14 @@
+walmart-voice-assistant/
+├── app.py                  # Main Flask application
+├── database.py             # MongoDB connection
+├── main.py                 # Core processing logic
+├── stt.py                  # Speech-to-text with Whisper
+├── tts.py                  # Text-to-speech with TTS
+├── sentiment.py            # Sentiment analysis
+├── intent.py               # Intent recognition
+├── cart.py                 # Shopping cart operations
+├── products.json           # Product database
+├── requirements.txt        # Python dependencies
+├── .env                    # Environment variables
+├── dashboard.html          # Combined UI (voice + analytics)
+└── audio_files/            # Directory for audio storage

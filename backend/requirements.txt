@@ -1,0 +1,11 @@
+flask
+flask-cors
+python-dotenv
+whisper
+ffmpeg-python==0.2.0
+git+https://github.com/coqui-ai/TTS.git
+transformers
+torch
+pymongo
+sounddevice
+scipy
