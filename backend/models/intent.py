@@ -38,9 +38,13 @@ def extract_intent_entities(text):
         metrics_list = ["kg", "kilogram", "litre", "liter", "dozen", "dozens", "packet", "packets", "bottle", "bottles", "piece", "pieces"]
         for prod in products_data:
             prod_name = prod["name"].lower()
-            # Look for patterns like '2 kg rice', '3 packets milk', etc.
+            # Look for patterns like '2 kg rice', '3 packets milk', '5kg rice', etc.
             pattern = r"(\d+|one|two|three|four|five|a|an)?\s*(%s)?\s*%s" % ("|".join(metrics_list), re.escape(prod_name))
             match = re.search(pattern, text)
+            if not match:
+                # Also try to match patterns like '5kg rice' (no space)
+                pattern_nospace = r"(\d+|one|two|three|four|five|a|an)(%s)%s" % ("|".join(metrics_list), re.escape(prod_name))
+                match = re.search(pattern_nospace, text)
             if match:
                 if len(prod_name) > best_match_len:
                     best_match = prod["name"]
@@ -65,9 +69,19 @@ def extract_intent_entities(text):
             # fallback to old logic for partial matches
             for prod in products_data:
                 prod_name = prod["name"].lower()
-                if prod_name in text or prod_name.rstrip('s') in text or (prod_name + 's') in text:
-                    product = prod["name"]
+                # Try to match any single word from the product name
+                for word in prod_name.split():
+                    if word in text.split():
+                        product = prod["name"]
+                        break
+                if product:
                     break
+            if not product:
+                for prod in products_data:
+                    prod_name = prod["name"].lower()
+                    if prod_name in text or prod_name.rstrip('s') in text or (prod_name + 's') in text:
+                        product = prod["name"]
+                        break
         if not product:
             product = "item"
         logger.info(f"Extracted entities - Intent: {intent}, Product: {product}, Qty: {qty}, Metric: {metric}")
