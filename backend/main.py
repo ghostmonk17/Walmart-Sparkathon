@@ -1,9 +1,9 @@
-from stt import transcribe_audio
-from tts import speak_response
-from intent import extract_intent_entities
-from sentiment import detect_sentiment
-from cart import add_to_cart, remove_from_cart, show_cart
-from database import log_collection
+from models.stt import transcribe_audio
+from models.tts import speak_response
+from models.intent import extract_intent_entities
+from models.sentiment import detect_sentiment
+from models.cart import add_to_cart, remove_from_cart, show_cart
+from models.database import log_collection
 import sys
 import logging
 
